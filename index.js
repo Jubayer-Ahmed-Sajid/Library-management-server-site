@@ -28,6 +28,7 @@ async function run() {
         const CategoriesCollection = database.collection("categories");
         const BooksDB = client.db("BooksDB");
         const BooksCollection = BooksDB.collection("Books");
+        const BorrowedCollection = client.db('Borrowed').collection('Borrowings')
 
         // get function
         app.get('/', async (req, res) => {
@@ -58,12 +59,19 @@ async function run() {
             const result = await BooksCollection.findOne(query)
             res.send(result)
         })
+            
+       
         // post function
         app.post('/allBooks', async(req,res)=>{
             const book = req.body;
             console.log(book)
             const result = await BooksCollection.insertOne(book)
             res.send (result)
+        })
+        app.post('/borrowings',async(req,res)=>{
+            const borrowed = req.body;
+            const result = await BorrowedCollection.insertOne(borrowed)
+            res.send(result)
         })
 
         await client.db("admin").command({ ping: 1 });
