@@ -2,10 +2,20 @@ const express = require('express')
 const cors = require('cors')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
+const cookieParser = require('cookie-parser')
+const jwt = require('jsonwebtoken');
 const app = express()
 app.use(express.json());
-app.use(cors())
+app.use(cors({
+    origin:['http://localhost:5173'],
+    credentials:true
+}))
 const port = process.env.PORT || 5000;
+
+// Middlewares
+app.use(cookieParser())
+
+
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.vqva6ft.mongodb.net/?retryWrites=true&w=majority`;
@@ -31,47 +41,90 @@ async function run() {
         const BorrowedCollection = client.db('Borrowed').collection('Borrowings')
 
         // get function
+        app.post('/jwt', async (req, res) => {
+            const user = req.body;
+            console.log('user for token', user);
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+
+            res.cookie('token', token, {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'none'
+            })
+                .send({ success: true });
+        })
+        app.post('/logout', async (req, res) => {
+            const user = req.body;
+            console.log('logging out', user);
+            res.clearCookie('token', { maxAge: 0 }).send({ success: true })
+        })
         app.get('/', async (req, res) => {
             res.send('Book library Server is running')
         })
-        app.get('/categories', async(req,res)=>{
+        app.get('/categories', async (req, res) => {
             const result = await CategoriesCollection.find().toArray()
             res.send(result)
-             
+
 
         })
-        app.get('/allBooks', async(req,res)=>{
+        app.get('/allBooks', async (req, res) => {
             const result = await BooksCollection.find().toArray()
             res.send(result)
         })
 
-        app.get('/allBooks/:category', async(req,res)=>{
+        app.get('/allBooks/:category', async (req, res) => {
             const category = req.params.category
-            const query = {category_name: category}
+            const query = { category_name: category }
             console.log(query)
             const result = await BooksCollection.find(query).toArray()
             res.send(result)
         })
-        app.get('/allBooks/:category/:id', async(req,res)=>{
+        app.get('/allBooks/:category/:id', async (req, res) => {
             const id = req.params.id
-            const query = {_id: new ObjectId(id)}
+            const query = { _id: new ObjectId(id) }
             console.log(query)
             const result = await BooksCollection.findOne(query)
             res.send(result)
         })
-            
-       
+
+        app.get('/borrowings', async (req, res) => {
+            if (req.query?.email) {
+                const query = { email: req.query?.email }
+                const result = await BorrowedCollection.find(query).toArray()
+                res.send(result)
+            }
+
+        })
+
         // post function
-        app.post('/allBooks', async(req,res)=>{
+        app.post('/allBooks', async (req, res) => {
             const book = req.body;
             console.log(book)
             const result = await BooksCollection.insertOne(book)
-            res.send (result)
+            res.send(result)
         })
-        app.post('/borrowings',async(req,res)=>{
+        app.post('/borrowings', async (req, res) => {
             const borrowed = req.body;
             const result = await BorrowedCollection.insertOne(borrowed)
             res.send(result)
+        })
+        // update function
+        app.put('/allBooks/:category/:id',async (req,res)=>{
+            const id = req.params.id;
+            const book = req.body;
+            const filter = {_id: new ObjectId(id)}
+            const options = { upsert: true };
+            console.log('quantity', book)
+            const updatedDoc = {
+
+                $set:{
+                    quantity: book.quantity - 1
+                }
+            }
+            const result = await BooksCollection.updateOne(filter,updatedDoc,options)
+            res.send(result)
+            
+
         })
 
         await client.db("admin").command({ ping: 1 });
