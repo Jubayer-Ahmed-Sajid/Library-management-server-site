@@ -2,36 +2,15 @@ const express = require('express')
 const cors = require('cors')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
-const cookieParser = require('cookie-parser')
-const jwt = require('jsonwebtoken');
 const app = express()
+app.use(cors());
 app.use(express.json());
-app.use(cors({
-    origin: ['http://localhost:5173'],
-    credentials: true
-}))
 const port = process.env.PORT || 5000;
 
 // Middlewares
-app.use(cookieParser())
-
-const verifyToken = (req, res, next) => {
-    const token = req?.cookies?.token;
-
-    if (!token) {
-        return res.status(401).send({ message: 'unauthorized access' })
-    }
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-        if (err) {
-            return res.status(401).send({ message: 'Access unauthorized' })
-        }
-        req.user = decoded;
-        next();
-    })
-}
-
-
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.vqva6ft.mongodb.net/?retryWrites=true&w=majority`;
+
+
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -54,23 +33,7 @@ async function run() {
         const BorrowedCollection = client.db('Borrowed').collection('Borrowings')
 
         // get function
-        app.post('/jwt', async (req, res) => {
-            const user = req.body;
-            console.log('user for token', user);
-            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
 
-            res.cookie('token', token, {
-                httpOnly: true,
-                secure: true,
-                sameSite: 'none'
-            })
-                .send({ success: true });
-        })
-        app.post('/logout', async (req, res) => {
-            const user = req.body;
-
-            res.clearCookie('token', { maxAge: 0 }).send({ success: true })
-        })
         app.get('/', async (req, res) => {
             res.send('Book library Server is running')
         })
@@ -80,7 +43,7 @@ async function run() {
 
 
         })
-        app.get('/allBooks',verifyToken, async (req, res) => {
+        app.get('/allBooks', async (req, res) => {
             const result = await BooksCollection.find().toArray()
             res.send(result)
         })
@@ -111,7 +74,7 @@ async function run() {
         })
 
         // post function
-        app.post('/allBooks',verifyToken, async (req, res) => {
+        app.post('/allBooks', async (req, res) => {
             const book = req.body;
 
             const result = await BooksCollection.insertOne(book)
@@ -129,31 +92,61 @@ async function run() {
             }
         })
         // update function
-        app.patch('/allBooks/:category/:id', async (req, res) => {
-            const id = req.params.id;
-            const book = req.body;
-            if (book.quantity > 0) {
+        app.patch('/allBooks/:category/:id/:action', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const book = req.body;
+                const action = req.params.action;
+                const filter = { _id: new ObjectId(id) };
+                console.log(book)
+                let updatedDoc;
 
-                const filter = { _id: new ObjectId(id) }
-                const options = { upsert: true };
-                console.log('quantity', book)
-                const updatedDoc = {
-
-                    $set: {
-                        quantity: book.quantity - 1
+                if (action === 'borrow') {
+                    if (book.quantity > 0) {
+                        updatedDoc = {
+                            $set: {
+                                quantity: book.quantity - 1
+                            }
+                        };
+                        const result = await BooksCollection.updateOne(filter, updatedDoc);
+                        res.send(result);
+                    } else {
+                        throw new Error('Book quantity is not sufficient for borrowing.');
                     }
+                } else if (action === 'update') {
+                    updatedDoc = {
+                        $set: {
+                            name: book.name,
+                            category_name: book.category_name,
+                            author: book.author,
+                            rating: book.rating,
+                            quantity: book.quantity,
+                            description: book.description
+                        }
+                    };
+                    const result = await BooksCollection.updateOne(filter, updatedDoc);
+                    res.send(result);
+                }
+                else if(action === 'return'){
+                    updatedDoc ={
+                        $set: {
+                            quantity: book.quantity +1
+
+                        }
+                    }
+                    const result = await BooksCollection.updateOne(filter,updatedDoc)
+                    res.send(result)
+                } else {
+                    throw new Error('Invalid action specified.');
                 }
 
-                const result = await BooksCollection.updateOne(filter, updatedDoc, options)
-                res.send(result)
-            }
-            else {
-                console.log('No book available')
-            }
 
+            } catch (error) {
+                console.error('Error updating book:', error.message);
+                res.status(500).send({ error: 'Internal Server Error' });
+            }
+        });
 
-        })
-       
         // delete operation
         app.delete('/borrowings/:id', async (req, res) => {
             const id = req.params.id
