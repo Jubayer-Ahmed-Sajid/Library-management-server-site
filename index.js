@@ -48,13 +48,13 @@ async function run() {
             const result = await BooksCollection.find().toArray()
             res.send(result)
         })
-        app.get('/books/search', async(req,res)=>{
-            const {name} = req.query
+        app.get('/books/search', async (req, res) => {
+            const { name } = req.query
             console.log(name)
-            const result = await BooksCollection.find({name}).toArray()
+            const result = await BooksCollection.find({ name }).toArray()
             res.send(result)
-      
-          })
+
+        })
 
         app.get('/allBooks/:category', async (req, res) => {
             const category = req.params.category
@@ -80,6 +80,14 @@ async function run() {
             }
 
         })
+        // Recently added books
+
+        app.get('/books/recent', async (req, res) => {
+            
+                const recentBooks = await BooksCollection.find().sort({ addedDate: -1 }).limit(5).toArray();
+                res.send(recentBooks)
+            
+        });
 
         // post function
         app.post('/allBooks', async (req, res) => {
@@ -135,14 +143,14 @@ async function run() {
                     const result = await BooksCollection.updateOne(filter, updatedDoc);
                     res.send(result);
                 }
-                else if(action === 'return'){
-                    updatedDoc ={
+                else if (action === 'return') {
+                    updatedDoc = {
                         $set: {
-                            quantity: book.quantity +1
+                            quantity: book.quantity + 1
 
                         }
                     }
-                    const result = await BooksCollection.updateOne(filter,updatedDoc)
+                    const result = await BooksCollection.updateOne(filter, updatedDoc)
                     res.send(result)
                 } else {
                     throw new Error('Invalid action specified.');
