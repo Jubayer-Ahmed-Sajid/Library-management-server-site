@@ -43,10 +43,18 @@ async function run() {
 
 
         })
+
         app.get('/allBooks', async (req, res) => {
             const result = await BooksCollection.find().toArray()
             res.send(result)
         })
+        app.get('/books/search', async(req,res)=>{
+            const {name} = req.query
+            console.log(name)
+            const result = await BooksCollection.find({name}).toArray()
+            res.send(result)
+      
+          })
 
         app.get('/allBooks/:category', async (req, res) => {
             const category = req.params.category
