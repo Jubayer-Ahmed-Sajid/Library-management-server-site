@@ -37,6 +37,9 @@ async function run() {
         app.get('/', async (req, res) => {
             res.send('Book library Server is running')
         })
+
+        // Categories
+
         app.get('/categories', async (req, res) => {
             const result = await CategoriesCollection.find().toArray()
             res.send(result)
@@ -44,10 +47,14 @@ async function run() {
 
         })
 
+        // All books
+
         app.get('/allBooks', async (req, res) => {
             const result = await BooksCollection.find().toArray()
             res.send(result)
         })
+        
+        // book search
         app.get('/books/search', async (req, res) => {
             const { name } = req.query
             console.log(name)
@@ -56,6 +63,7 @@ async function run() {
 
         })
 
+        // books based on category
         app.get('/allBooks/:category', async (req, res) => {
             const category = req.params.category
             const query = { category_name: category }
@@ -63,6 +71,8 @@ async function run() {
             const result = await BooksCollection.find(query).toArray()
             res.send(result)
         })
+
+        // single book
         app.get('/allBooks/:category/:id', async (req, res) => {
             const id = req.params.id
             const category = req.params.category;
@@ -72,6 +82,7 @@ async function run() {
             res.send(result)
         })
 
+        // borrowed books collection
         app.get('/borrowings', async (req, res) => {
             if (req.query?.email) {
                 const query = { email: req.query?.email }
@@ -96,6 +107,7 @@ async function run() {
             const result = await BooksCollection.insertOne(book)
             res.send(result)
         })
+
         app.post('/borrowings', async (req, res) => {
             const borrowed = req.body;
             if (borrowed.book.quantity > 0) {
@@ -114,10 +126,12 @@ async function run() {
                 const book = req.body;
                 const action = req.params.action;
                 const filter = { _id: new ObjectId(id) };
-                console.log(book)
                 let updatedDoc;
 
+
+
                 if (action === 'borrow') {
+                    console.log(action,"borrow time quantity",book,id);
                     if (book.quantity > 0) {
                         updatedDoc = {
                             $set: {
@@ -129,7 +143,12 @@ async function run() {
                     } else {
                         throw new Error('Book quantity is not sufficient for borrowing.');
                     }
-                } else if (action === 'update') {
+                } 
+                
+                
+                else if (action === 'update') {
+                    console.log(action);
+
                     updatedDoc = {
                         $set: {
                             name: book.name,
@@ -143,14 +162,21 @@ async function run() {
                     const result = await BooksCollection.updateOne(filter, updatedDoc);
                     res.send(result);
                 }
+
+
+
                 else if (action === 'return') {
+                    console.log(action,"return time book quantity is:",book,id);
+
+
                     updatedDoc = {
                         $set: {
-                            quantity: book.quantity + 1
+                            quantity: book.bookQuantity + 1
 
                         }
                     }
                     const result = await BooksCollection.updateOne(filter, updatedDoc)
+                    console.log(updatedDoc,id)
                     res.send(result)
                 } else {
                     throw new Error('Invalid action specified.');
