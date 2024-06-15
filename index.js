@@ -95,7 +95,7 @@ async function run() {
 
         app.get('/books/recent', async (req, res) => {
             
-                const recentBooks = await BooksCollection.find().sort({ addedDate: -1 }).limit(5).toArray();
+                const recentBooks = await BooksCollection.find().sort({ addedDate: -1 }).limit(4).toArray();
                 res.send(recentBooks)
             
         });
